@@ -14,6 +14,10 @@ const stakingAddress = process.env.STAKING_CONTRACT_ADDRESS
 const BUSDAddress = process.env.BUSD_COIN_ADDRESS
 const BZAAddress = process.env.BZA_COIN_ADDRESS
 const DiscordBotChannel = process.env.DISCORD_BOT_CH
+const UpdatesChannel = process.env.UPDATES_DISCORD_CH
+const StakingChannel = process.env.STAKING_DISCORD_CH
+const RewardsChannel = process.env.REWARDS_DISCORD_CH
+
 
 // ABI for Events 
 let abi = [ "event Transfer(address indexed from, address indexed to, uint value)" ];
@@ -21,7 +25,7 @@ let iface = new ethers.utils.Interface(abi);
 
 // Establish Connection to Web3 BSC Provider + Contract
 const webSocketProvider = new ethers.providers.WebSocketProvider(process.env.WEB_SOCKET_NODE);
-const BZAContract = new ethers.Contract(stakingAddress, stakingABI, webSocketProvider);
+const BZAStakeContract = new ethers.Contract(stakingAddress, stakingABI, webSocketProvider);
 const BUSDContract = new ethers.Contract(BUSDAddress, ERC20ABI, webSocketProvider);
 var BZAConnected = null;
 
@@ -42,10 +46,11 @@ async function establisContractConnection() {
 
     // Connect to Contract Owner Wallet
     const EOA = new ethers.Wallet(process.env.CONTRACT_OWNER_KEY, webSocketProvider)
-    BZAConnected = BZAContract.connect(EOA)
+    BZAConnected = BZAStakeContract.connect(EOA)
 
     // Set daily time inerval on reward distributions 
     setInterval(dailyRewards, 86400001);
+    setInterval(dailyUpdates, 86400001);
 
 }
 
@@ -77,33 +82,11 @@ client.on('ready', function(e) {
 client.login(process.env.DISCORD_TOKEN)
 
 
-// ********************************
-// FILTERS FOR 
-// EVENT LISTENERS FOR BZA STAKING CONTRACT 
-// 
-// ********************************
 
-// BUSDAddress transfers  *to*  hexZeroPad address:
-const rewardFilter = {
-    address: BUSDAddress,
-    topics: [
-        ethers.utils.id("Transfer(address,address,uint256)"),
-        null,
-        hexZeroPad("0xeF4Fc808Cab6ee271538C355dB310eeC6B218490", 32)
-    ]
-};
 
-// List all BUSDAddress transfers  *to*  myAddress:
-const scheduleFilter = {
-    address: stakingAddress,
-    topics: [
-        ethers.utils.id("RewardRecieved(uint,uint,uint,uint);"),
-    ]
-};
-
-async function getBUSDBal(_account){
+async function getBUSDBal(){
     try {
-        var balance = await BUSDContract.balanceOf(_account);
+        var balance = await BUSDContract.balanceOf("0x5548ED93f4255875346b0f71562d58026cDf0FdE");
     } catch (e) {
         console.log("fatal error");
         console.log(e);
@@ -112,9 +95,9 @@ async function getBUSDBal(_account){
     await client.channels.cache.get(DiscordBotChannel).send("New BUSD Balance on Contract: " + balance);
 }
 
-async function createReward(_account){
+async function createReward(_amount){
     try {
-        const transaction = await BZAConnected.createRewardSchedule(ethers.utils.parseUnits(".01"), "0x8301F2213c0eeD49a7E28Ae4c3e91722919B8B47")
+        const transaction = await BZAConnected.createRewardSchedule(_amount , BUSDAddress)
         console.log("new reward schedule created")
         console.log(transaction)
     } catch (e) {
@@ -154,36 +137,30 @@ async function testSchedules() {
 //
 // ********************************
 
-client.on('message',
-    async function(msg){
-        if(msg.content === "update"){
-            const stakes = await BZAConnected.getTotalStaked()
-            const stakeOut = await ethers.utils.formatEther(stakes)
-            const file = new MessageAttachment('./assets/bzaLogo.png');
-
-            const bzaReport = new MessageEmbed()
-	        .setColor('#F19D67')
-	        .setTitle('Bonanza.Money')
-	        .setURL('https://bonanza.money/')
-	        .setAuthor({ name: 'BZA Report', iconURL: 'attachment://bzaLogo.png', url: 'https://bonanza.money/' })
-	        .setDescription('Daily Bonanza.Money Status Report')
-	        .setThumbnail('attachment://bzaLogo.png')
-	        .addFields(
-    		{ name: '\u200B', value: '\u200B' },
-		    { name: 'Current BZA Staked Balance', value: stakeOut + " BZA" },
-		    { name: '\u200B', value: '\u200B' },
-	        )
-	        .setTimestamp()
-	        .setFooter({ text: 'Check back tomorrow for more updates', iconURL: 'attachment://bzaLogo.png' });
-
-            client.channels.cache.get(DiscordBotChannel).send({ embeds: [bzaReport], files: [file]});
-            client.channels.cache.get(DiscordBotChannel).send("@everyone Testnet Updates");
-
-            testSchedules()
-
-
-        }
-    })
+    async function dailyUpdates() {
+                const stakes = await BZAConnected.getTotalStaked()
+                const stakeOut = await ethers.utils.formatEther(stakes)
+                const file = new MessageAttachment('./assets/bzaLogo.png');
+    
+                const bzaReport = new MessageEmbed()
+                .setColor('#F19D67')
+                .setTitle('Bonanza.Money')
+                .setURL('https://bonanza.money/')
+                .setAuthor({ name: 'BZA Report', iconURL: 'attachment://bzaLogo.png', url: 'https://bonanza.money/' })
+                .setDescription('Daily Bonanza.Money Status Report')
+                .setThumbnail('attachment://bzaLogo.png')
+                .addFields(
+                { name: '\u200B', value: '\u200B' },
+                { name: 'Current BZA Staked Balance', value: stakeOut + " BZA" },
+                { name: '\u200B', value: '\u200B' },
+                )
+                .setTimestamp()
+                .setFooter({ text: 'Check back tomorrow for more updates', iconURL: 'attachment://bzaLogo.png' });
+    
+                client.channels.cache.get(UpdatesChannel).send({ embeds: [bzaReport], files: [file]});
+                client.channels.cache.get(UpdatesChannel).send("@everyone Testnet Updates");
+    
+    }
 
     client.on('message',
     async function(msg){
@@ -197,6 +174,21 @@ client.on('message',
         }
     })
 
+// ********************************
+// FILTERS FOR 
+// EVENT LISTENERS FOR BZA STAKING CONTRACT 
+// 
+// ********************************
+
+// BUSDAddress transfers  *to*  hexZeroPad address:
+const rewardFilter = {
+    address: BUSDAddress,
+    topics: [
+        ethers.utils.id("Transfer(address,address,uint256)"),
+        null,
+        hexZeroPad("0xeF4Fc808Cab6ee271538C355dB310eeC6B218490", 32)
+    ]
+};
 
 // ********************************
 // EVENT LISTENERS FOR BZA STAKING CONTRACT 
@@ -205,15 +197,49 @@ client.on('message',
 
 // Event Fired when BUSD is sent to the Staking Contract
 webSocketProvider.on(rewardFilter, (log) => {
+    console.log(log)
     client.channels.cache.get(DiscordBotChannel).send("New BUSD Rewards Recieved");
     getBUSDBal(stakingAddress);
-    createReward() 
+    createReward(amount) 
 
 })
 
 // Event Fired when Reward Schedule has been Created
-webSocketProvider.on(scheduleFilter, (log) => {
-    client.channels.cache.get(DiscordBotChannel).send("New Reward Schedule Created for next 7 days. @everyone");
+BZAStakeContract.on('RewardRecieved', (amount, afterBonus, dailyAmt, timeCreated) => {
+    const logo = new MessageAttachment('./assets/bzaLogo.png');
+    const rewardCreated = new MessageEmbed()
+	        .setColor('#F19D67')
+	        .setTitle('New Reward Schedule Created')
+	        .setAuthor({ name: 'BZA Staking Contract Watcher', iconURL: 'attachment://bzaLogo.png'})
+	        .setThumbnail('attachment://bzaLogo.png')
+	        .addFields(
+                { name: 'Reward Value (Pre Bonus Distributions):', value: ethers.utils.formatEther(amount) + " BUSD" },
+                { name: 'Reward Value Final:', value: ethers.utils.formatEther(afterBonus) + " BUSD" },
+                { name: 'Daily Distributions over 7 days:', value: ethers.utils.formatEther(dailyAmt) + " BUSD" },
+                )
+	        .setTimestamp()
+
+            client.channels.cache.get(RewardsChannel).send({ embeds: [rewardCreated], files: [logo]});
+            client.channels.cache.get(RewardsChannel).send("@everyone Testnet Updates");
+
+        })
+
+// Event Fired when New Stake is Created
+BZAStakeContract.on('NewStake', (staker, amt) => {
+    const logo = new MessageAttachment('./assets/bzaLogo.png');
+    const stakeAlert = new MessageEmbed()
+	        .setColor('#F19D67')
+	        .setTitle('New Stake on Bonanza.Money')
+	        .setAuthor({ name: 'BZA Staking Contract Watcher', iconURL: 'attachment://bzaLogo.png'})
+	        .setThumbnail('attachment://bzaLogo.png')
+	        .addFields(
+                { name: 'Stake Value:', value: ethers.utils.formatEther(amt) + " BZA" },
+                { name: 'Staker:', value: staker },
+                )
+	        .setTimestamp()
+
+            client.channels.cache.get(StakingChannel).send({ embeds: [stakeAlert], files: [logo]});
+            client.channels.cache.get(StakingChannel).send("@everyone Testnet Updates");
 
 })
 
