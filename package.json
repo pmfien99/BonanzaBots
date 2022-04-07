@@ -1,0 +1,19 @@
+{
+  "name": "bonanzabots",
+  "version": "1.0.0",
+  "description": "Bots for BZA",
+  "main": "bzabot.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node bzabot.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "discord.js": "^13.6.0",
+    "dotenv": "^16.0.0",
+    "ethers": "^5.6.2",
+    "net": "^1.0.2",
+    "node": "^17.7.2"
+  }
+}
