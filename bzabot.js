@@ -38,6 +38,7 @@ const client = new Client({
 })
 // Discord - ON BOT CONNECT 
 client.on('ready', function(e) {
+    
     console.log(`Logged in as ${client.user.tag}!`)
     client.channels.cache.get(DiscordBotChannel).send('BZA Bot Connected');
     client.channels.cache.get(DiscordBotChannel).send('Watching Contract @ ' + 'https://testnet.bscscan.com/address/' + stakingAddress);
@@ -45,34 +46,7 @@ client.on('ready', function(e) {
 })
 
 // Connect Discord Bot
-// Establish Commands
-// const commands = [];
-// const commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
 
-// const clientId = '960667114111389706';
-// const guildId = '863979368304345139';
-
-// for (const file of commandFiles) {
-// 	const command = require(`./commands/${file}`);
-// 	commands.push(command.data.toJSON());
-// }
-
-// const rest = new REST({ version: '9' }).setToken(process.env.DISCORD_TOKEN);
-
-// (async () => {
-//     await client.login(process.env.DISCORD_TOKEN)
-// 	try {
-// 		console.log('Started refreshing application (/) commands.');
-
-// 		await rest.put(
-// 			Routes.applicationGuildCommands(clientId, guildId),
-// 			{ body: commands },
-// 		);
-
-// 		console.log('Successfully reloaded application (/) commands.');
-// 	} catch (error) {
-// 		console.error(error);
-// 	}
 // })();
 
 // ********************************
@@ -93,14 +67,14 @@ async function establisContractConnection() {
     BZAConnected = BZAStakeContract.connect(EOA)
 
     // Set daily time inerval on reward distributions 
-    setInterval(dailyRewards, 10000);
+    setInterval(dailyRewards, 3600001);
     setInterval(dailyUpdates, 3600000);
 
 }
 
 // Daily dist. of rewards
 async function dailyRewards() {
-    client.channels.cache.get(DiscordBotChannel).send('Sending New Rewards Over TestNet Every few Minutes');
+    client.channels.cache.get(DiscordBotChannel).send('TestNet Rewards Sending (Once Each Hour)');
     try {
         const rewards = await BZAConnected.distributeRewards()
         await client.channels.cache.get(DiscordBotChannel).send("Rewards Dsitributed For This Period!");
